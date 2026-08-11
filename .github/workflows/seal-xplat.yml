@@ -1,0 +1,73 @@
+---
+# Cross-platform test workflow for the sealed PyJWT build.
+#
+# This is the upstream `CI` workflow's `tests` job, kept verbatim (same matrix
+# axes, same tox invocation) and carried into a separate file because the seal
+# cross-platform gate only reads workflows that the version patch *adds*.
+# `.github/workflows/main.yml` is disabled (`if: false`) on the fork so this is
+# the only workflow that runs.
+name: CI (cross-platform)
+
+on:
+  push:
+  workflow_dispatch:
+
+# Freeze the pip dependency graph to the 2.7.0 release date so the upstream
+# pins (coverage[toml]==5.0.4, pytest<7, sphinx<5) still resolve today.
+env:
+  PIP_INDEX_URL: "https://:2023-05-09@time-machines-pypi.sealsecurity.io/"
+
+jobs:
+  tests:
+    name: "Python ${{ matrix.python-version }} on ${{ matrix.platform }}"
+    runs-on: "${{ matrix.platform }}"
+    env:
+      USING_COVERAGE: '3.7,3.8'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["ubuntu-latest", "windows-latest"]
+        # "3.11.0-beta - 3.11" resolved to the 3.11 betas at release time; the
+        # released 3.11 is the same axis value, kept as a plain version.
+        python-version: ["3.7", "3.8", "3.9", "3.10",
+                         "3.11", "pypy-3.8", "pypy-3.9"]
+        exclude:
+          # actions/setup-python ships no CPython 3.7 build for the current
+          # ubuntu-latest image (3.7 is EOL and absent from the 24.04
+          # manifest). 3.7 is kept in the axis and still runs on Windows.
+          - platform: "ubuntu-latest"
+            python-version: "3.7"
+
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-python@v5"
+        with:
+          python-version: "${{ matrix.python-version }}"
+
+      - name: "Install dependencies"
+        run: |
+          python -VV
+          python -m site
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade coverage[toml] virtualenv tox tox-gh-actions
+
+      - name: "Run tox targets for ${{ matrix.python-version }}"
+        run: "python -m tox"
+
+      # We always use a modern Python version for combining coverage to prevent
+      # parsing errors in older versions for modern code.
+      - uses: "actions/setup-python@v5"
+        with:
+          python-version: "3.8"
+
+      - name: "Combine coverage"
+        run: |
+          set -xe
+          python -m pip install coverage[toml]
+          python -m coverage combine
+          python -m coverage xml
+        if: "contains(env.USING_COVERAGE, matrix.python-version) && matrix.platform == 'ubuntu-latest'"
+
+      # The Codecov upload step is removed: it depends on upstream repository
+      # secrets that are not available on the build fork.

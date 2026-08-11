@@ -10,6 +10,9 @@ on:
 
 jobs:
   tests:
+    # Disabled on the seal build fork: only the cross-platform test
+    # workflow (.github/workflows/seal-xplat.yml) runs here.
+    if: false
     name: "Python ${{ matrix.python-version }} on ${{ matrix.platform }}"
     runs-on: "${{ matrix.platform }}"
     env:
@@ -59,6 +62,9 @@ jobs:
           fail_ci_if_error: true
 
   package:
+    # Disabled on the seal build fork: only the cross-platform test
+    # workflow (.github/workflows/seal-xplat.yml) runs here.
+    if: false
     name: "Build & verify package"
     runs-on: "ubuntu-latest"
 
@@ -82,6 +88,9 @@ jobs:
         run: "python -m twine check dist/*"
 
   install-dev:
+    # Disabled on the seal build fork: only the cross-platform test
+    # workflow (.github/workflows/seal-xplat.yml) runs here.
+    if: false
     strategy:
       matrix:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
